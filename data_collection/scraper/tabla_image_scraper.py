@@ -11,34 +11,33 @@ from webdriver_manager.chrome import ChromeDriverManager
 SAVE_DIR = "data_collection/scraper/images"
 os.makedirs(SAVE_DIR, exist_ok=True)
 
-SEARCH_URL = "https://www.google.com/search?hl=en&q=tabla+drum&tbm=isch"
+SEARCH_TERMS = ["Dayan drum", "Bayan drum", "tabla drums", "tabla drums hands playing", "indian hand drums"]
 
 options = Options()
 options.headless = True
 
-
-def fetch_image_urls(target_count=20):
+def fetch_image_urls(search_terms, target_count=20):
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=options)
-    driver.get(SEARCH_URL)
-    time.sleep(2)
-
-    body = driver.find_element(By.TAG_NAME, "body")
     image_urls = set()
 
-    while len(image_urls) < target_count:
-        images = driver.find_elements(By.CSS_SELECTOR, "img")
-        for img in images:
-            src = img.get_attribute('src')
-            if src and src.startswith('http'):
-                image_urls.add(src)
+    for term in search_terms:
+        driver.get(f"https://www.google.com/search?hl=en&q={term}&tbm=isch")
+        time.sleep(2)
 
-        body.send_keys(Keys.PAGE_DOWN)
-        time.sleep(1)
+        body = driver.find_element(By.TAG_NAME, "body")
+        while len(image_urls) < target_count * len(search_terms):
+            images = driver.find_elements(By.CSS_SELECTOR, "img")
+            for img in images:
+                src = img.get_attribute('src')
+                if src and src.startswith('http'):
+                    image_urls.add(src)
+
+            body.send_keys(Keys.PAGE_DOWN)
+            time.sleep(1)
 
     driver.quit()
     return list(image_urls)
-
 
 def download_images(image_urls):
     for i, url in enumerate(image_urls):
@@ -53,7 +52,6 @@ def download_images(image_urls):
         except Exception as e:
             print(f"Failed to download {url}: {e}")
 
-
 if __name__ == "__main__":
-    image_urls = fetch_image_urls(target_count=50)  # Change the number as needed
+    image_urls = fetch_image_urls(SEARCH_TERMS, target_count=100)  # Adjust the count as needed
     download_images(image_urls)
