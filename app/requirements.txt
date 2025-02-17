@@ -1,0 +1,13 @@
+torch
+torchvision
+torchaudio
+transformers
+diffusers
+scipy
+numpy
+pandas
+jupyterlab
+opencv-python
+gradio
+streamlit
+label-studio
