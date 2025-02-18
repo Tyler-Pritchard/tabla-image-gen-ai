@@ -17,7 +17,10 @@ SAVE_DIR = "data_collection/scraper/images"
 os.makedirs(SAVE_DIR, exist_ok=True)
 METADATA_FILE = "data_collection/scraper/image_metadata.csv"
 
-SEARCH_TERMS = ["Dayan drum", "Bayan drum", "tabla drums", "tabla drums hands playing", "indian hand drums"]
+SEARCH_TERMS = [
+    "Dayan drum", "Bayan drum", "tabla drums", "tabla drums hands playing",
+    "Indian tabla percussion", "tabla concert close-up", "tabla drumming solo", "hand percussion tabla India close-up"
+]
 
 options = Options()
 options.headless = True
@@ -28,6 +31,11 @@ options.add_argument("--disable-dev-shm-usage")
 def log(message):
     print(f"[LOG] {message}")
 
+def create_subfolders(terms):
+    for term in terms:
+        folder = os.path.join(SAVE_DIR, term.replace(" ", "_").lower())
+        os.makedirs(folder, exist_ok=True)
+
 def fetch_image_urls(search_terms, target_count=20):
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=options)
@@ -37,8 +45,9 @@ def fetch_image_urls(search_terms, target_count=20):
         log(f"Searching images for: {term}")
         driver.get(f"https://www.google.com/search?hl=en&q={term}&tbm=isch")
         time.sleep(random.uniform(2, 4))
-
         collected = 0
+        folder_path = os.path.join(SAVE_DIR, term.replace(" ", "_").lower())
+
         while collected < target_count:
             images = driver.find_elements(By.CSS_SELECTOR, "img")
             for img in images:
@@ -49,7 +58,7 @@ def fetch_image_urls(search_terms, target_count=20):
                     time.sleep(random.uniform(0.5, 1.5))
                     src = img.get_attribute('src')
                     if src and src.startswith('http'):
-                        image_urls.add((src, term))
+                        image_urls.add((src, term, folder_path))
                         log(f"Collected image URL: {src}")
                         collected += 1
                 except StaleElementReferenceException:
@@ -66,12 +75,14 @@ def fetch_image_urls(search_terms, target_count=20):
     log(f"Total image URLs collected: {len(image_urls)}")
     return list(image_urls)
 
+create_subfolders(SEARCH_TERMS)
+
 def download_image(data):
-    url, term = data
+    url, term, folder_path = data
     try:
         response = requests.get(url, timeout=5)
         if response.status_code == 200:
-            image_path = os.path.join(SAVE_DIR, f"tabla_{hash(url)}.jpg")
+            image_path = os.path.join(folder_path, f"tabla_{hash(url)}.jpg")
             with open(image_path, 'wb') as f:
                 f.write(response.content)
 
@@ -94,6 +105,6 @@ def download_images_multithreaded(image_urls):
         executor.map(download_image, image_urls)
 
 if __name__ == "__main__":
-    image_urls = fetch_image_urls(SEARCH_TERMS, target_count=5)
+    image_urls = fetch_image_urls(SEARCH_TERMS, target_count=1)  # Adjust count as needed
     download_images_multithreaded(image_urls)
     log("Scraping complete.")
