@@ -4,3 +4,4 @@ __pycache__/
 data/
 outputs/
 data_collection/scraper/images/*
+data_processing/processed_images/*

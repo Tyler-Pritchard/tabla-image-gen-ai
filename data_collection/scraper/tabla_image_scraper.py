@@ -1,110 +1,101 @@
 import os
+import csv
 import time
 import requests
-import hashlib
-import csv
-import random
-import traceback
-from concurrent.futures import ThreadPoolExecutor
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from selenium.common.exceptions import StaleElementReferenceException
-from webdriver_manager.chrome import ChromeDriverManager
+from playwright.sync_api import sync_playwright
 
 SAVE_DIR = "data_collection/scraper/images"
-os.makedirs(SAVE_DIR, exist_ok=True)
 METADATA_FILE = "data_collection/scraper/image_metadata.csv"
-
-SEARCH_TERMS = [
-    "Dayan drum", "Bayan drum", "tabla drums", "tabla drums hands playing",
-    "Indian tabla percussion", "tabla concert close-up", "tabla drumming solo", "hand percussion tabla India close-up"
-]
-
-options = Options()
-options.headless = True
-options.add_argument("--disable-cache")
-options.add_argument("--no-sandbox")
-options.add_argument("--disable-dev-shm-usage")
+SEARCH_TERMS = ["Dayan drum", "Bayan drum", "tabla drums"]
 
 def log(message):
     print(f"[LOG] {message}")
 
 def create_subfolders(terms):
+    """Create subfolders for storing downloaded images."""
     for term in terms:
         folder = os.path.join(SAVE_DIR, term.replace(" ", "_").lower())
         os.makedirs(folder, exist_ok=True)
 
-def fetch_image_urls(search_terms, target_count=20):
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=options)
-    image_urls = set()
+def scrape_images_playwright(search_term, target_count=5):
+    """Scrapes Bing for image URLs using Playwright."""
+    image_urls = []
 
-    for term in search_terms:
-        log(f"Searching images for: {term}")
-        driver.get(f"https://www.google.com/search?hl=en&q={term}&tbm=isch")
-        time.sleep(random.uniform(2, 4))
+    with sync_playwright() as p:
+        log(f"Launching Playwright for {search_term}...")
+        browser = p.firefox.launch(headless=False)
+        context = browser.new_context()
+        page = context.new_page()
+
+        search_url = f"https://www.bing.com/images/search?q={search_term}"
+        log(f"Navigating to: {search_url}")
+        page.goto(search_url, timeout=60000)
+
+        # Ensure images are present
+        page.wait_for_selector("img.mimg", timeout=10000)
+        thumbnails = page.query_selector_all("img.mimg")
+
+        log(f"Found {len(thumbnails)} images for {search_term}")
+
         collected = 0
-        folder_path = os.path.join(SAVE_DIR, term.replace(" ", "_").lower())
+        for thumb in thumbnails[:target_count]:
+            try:
+                thumb.scroll_into_view_if_needed()
+                time.sleep(1)
 
-        while collected < target_count:
-            images = driver.find_elements(By.CSS_SELECTOR, "img")
-            for img in images:
+                # Extract the correct image URL
+                img_url = thumb.get_attribute("src") or thumb.get_attribute("data-src")
+                
+                if not img_url or not img_url.startswith("http"):
+                    log(f"❌ Skipped invalid image: {img_url}")
+                    continue
+
+                log(f"✅ Found image: {img_url}")
+
+                image_urls.append((img_url, search_term))
+                collected += 1
+                log(f"[{collected}/{target_count}] Collected: {img_url}")
+
                 if collected >= target_count:
                     break
-                try:
-                    driver.execute_script("arguments[0].scrollIntoView();", img)
-                    time.sleep(random.uniform(0.5, 1.5))
-                    src = img.get_attribute('src')
-                    if src and src.startswith('http'):
-                        image_urls.add((src, term, folder_path))
-                        log(f"Collected image URL: {src}")
-                        collected += 1
-                except StaleElementReferenceException:
-                    log("[WARNING] Stale element encountered, retrying with delay...")
-                    time.sleep(2)
-                    continue
-                except Exception as e:
-                    log(f"Error fetching image: {traceback.format_exc()}")
+            except Exception as e:
+                log(f"Error collecting image: {e}")
 
-            driver.execute_script("window.scrollBy(0, document.body.scrollHeight)")
-            time.sleep(random.uniform(2, 4))
+        browser.close()
+    
+    log(f"✅ Collected {len(image_urls)} high-resolution images for {search_term}")
+    return image_urls
 
-    driver.quit()
-    log(f"Total image URLs collected: {len(image_urls)}")
-    return list(image_urls)
-
-create_subfolders(SEARCH_TERMS)
-
-def download_image(data):
-    url, term, folder_path = data
-    try:
-        response = requests.get(url, timeout=5)
-        if response.status_code == 200:
-            image_path = os.path.join(folder_path, f"tabla_{hash(url)}.jpg")
-            with open(image_path, 'wb') as f:
-                f.write(response.content)
-
-            with open(METADATA_FILE, 'a', newline='') as csvfile:
-                writer = csv.writer(csvfile)
-                writer.writerow([image_path, url, term, response.headers.get('Content-Length', 'Unknown')])
-            log(f"Downloaded: {image_path}")
-        else:
-            log(f"Failed to download {url}: HTTP {response.status_code}")
-    except Exception as e:
-        log(f"Failed to download {url}: {e}")
-
-def download_images_multithreaded(image_urls):
-    with open(METADATA_FILE, 'w', newline='') as csvfile:
+def download_images(image_urls):
+    """Downloads images from collected URLs."""
+    with open(METADATA_FILE, "w", newline="") as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow(["Image Path", "Source URL", "Search Term", "Size (Bytes)"])
+        writer.writerow(["Image Path", "Source URL", "Search Term"])
 
-    log("Starting multi-threaded downloads...")
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        executor.map(download_image, image_urls)
+    for url, term in image_urls:
+        log(f"Downloading: {url}")
+        folder_path = os.path.join(SAVE_DIR, term.replace(" ", "_").lower())
+
+        try:
+            response = requests.get(url, timeout=10)
+            if response.status_code == 200:
+                image_path = os.path.join(folder_path, f"{term.replace(' ', '_')}_{abs(hash(url))}.jpg")
+                with open(image_path, "wb") as f:
+                    f.write(response.content)
+                log(f"✅ Saved: {image_path}")
+
+                with open(METADATA_FILE, "a", newline="") as csvfile:
+                    csv.writer(csvfile).writerow([image_path, url, term])
+        except Exception as e:
+            log(f"❌ Failed to download {url}: {e}")
 
 if __name__ == "__main__":
-    image_urls = fetch_image_urls(SEARCH_TERMS, target_count=1)  # Adjust count as needed
-    download_images_multithreaded(image_urls)
-    log("Scraping complete.")
+    create_subfolders(SEARCH_TERMS)
+    all_image_urls = []
+
+    for term in SEARCH_TERMS:
+        image_urls = scrape_images_playwright(term, target_count=50)
+        all_image_urls.extend(image_urls)
+
+    download_images(all_image_urls)
+    log("✅ Scraping complete.")

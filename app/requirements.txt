@@ -11,3 +11,7 @@ opencv-python
 gradio
 streamlit
 label-studio
+opencv-python
+numpy
+pillow
+tqdm
