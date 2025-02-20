@@ -7,7 +7,13 @@ from playwright.sync_api import sync_playwright
 
 SAVE_DIR = "data_collection/scraper/images"
 METADATA_FILE = "data_collection/scraper/image_metadata.csv"
-SEARCH_TERMS = ["Dayan drum", "Bayan drum", "tabla drums", "tabla playing up close", "tabla hands"]
+SEARCH_TERMS = [
+    "Dayan drum", "Bayan drum", "tabla drums", 
+    "tabla hands playing up close", "tabla performance Indian concert",
+    "tabla player on stage", "tabla close-up", "tabla practice session",
+    "bayan drum left hand technique", "dayan drum right hand technique",
+    "tabla tuning process", "tabla top-down view", "tabla player close-up face"
+]
 
 def log(message):
     print(f"[LOG] {message}")
@@ -17,7 +23,13 @@ def create_subfolders(terms):
         folder = os.path.join(SAVE_DIR, term.replace(" ", "_").lower())
         os.makedirs(folder, exist_ok=True)
 
-def scrape_images_playwright(search_term, target_count=50):
+def scroll_page(page):
+    """Scrolls down the page multiple times to load more images."""
+    for _ in range(10):  # Adjust number of scrolls as needed
+        page.evaluate("window.scrollBy(0, document.body.scrollHeight)")
+        time.sleep(2)  # Allow images to load
+
+def scrape_images_playwright(search_term, target_count=1000):
     image_urls = []
     with sync_playwright() as p:
         log(f"Launching Playwright for {search_term}...")
@@ -29,6 +41,8 @@ def scrape_images_playwright(search_term, target_count=50):
         log(f"Navigating to: {search_url}")
         page.goto(search_url, timeout=60000)
         
+        scroll_page(page)  # Scroll down to load more images
+
         page.wait_for_selector("img.mimg", timeout=10000)
         thumbnails = page.query_selector_all("img.mimg")
         log(f"Found {len(thumbnails)} images for {search_term}")
@@ -42,11 +56,6 @@ def scrape_images_playwright(search_term, target_count=50):
                 
                 if not img_url or not img_url.startswith("http"):
                     log(f"❌ Skipped invalid image: {img_url}")
-                    continue
-
-                response = requests.head(img_url, timeout=5)
-                if response.status_code != 200 or 'image' not in response.headers.get("Content-Type", ""):
-                    log(f"⚠️ Skipped non-image or broken link: {img_url}")
                     continue
 
                 log(f"✅ Found image: {img_url}")
@@ -101,3 +110,4 @@ if __name__ == "__main__":
     
     download_images_multithreaded(all_image_urls)
     log("✅ Scraping complete.")
+
