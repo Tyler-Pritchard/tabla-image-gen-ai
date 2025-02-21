@@ -10,9 +10,9 @@ METADATA_FILE = "data_collection/scraper/image_metadata.csv"
 SEARCH_TERMS = [
     "Dayan drum", "Bayan drum", "tabla drums", 
     "tabla hands playing up close", "tabla performance Indian concert",
-    "tabla player on stage", "tabla close-up", "tabla practice session",
-    "bayan drum left hand technique", "dayan drum right hand technique",
-    "tabla tuning process", "tabla top-down view", "tabla player close-up face"
+    "tabla player on stage", "tabla close-up", "tabla practice session", "bayan drum left hand technique"
+    "play tabla instrument", "dayan drum right hand technique",
+    "tabla drums top-down view -snare", "tabla player close-up"
 ]
 
 def log(message):
@@ -105,7 +105,7 @@ if __name__ == "__main__":
     all_image_urls = []
     
     for term in SEARCH_TERMS:
-        image_urls = scrape_images_playwright(term, target_count=1000)
+        image_urls = scrape_images_playwright(term, target_count=500)
         all_image_urls.extend(image_urls)
     
     download_images_multithreaded(all_image_urls)
