@@ -6,3 +6,4 @@ outputs/
 data_collection/scraper/images/*
 data_processing/processed_images/*
 data_training/images/*
+data_training/images.zip

@@ -15,3 +15,4 @@ opencv-python
 numpy
 pillow
 tqdm
+matplotlib>=3.0
