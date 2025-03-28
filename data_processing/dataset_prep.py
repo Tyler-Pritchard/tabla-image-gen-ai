@@ -37,13 +37,13 @@ def prepare_dataset():
                         new_filename = f"tabla_{image_count:04d}.jpg"
                         new_path = os.path.join(TRAINING_IMAGES_DIR, new_filename)
                         cv2.imwrite(new_path, img)
-                        metadata.append([new_filename, folder])  # Folder name as class/label
+                        metadata.append([new_filename, folder, os.path.abspath(new_path)])
                         image_count += 1
     
     # Save metadata
     with open(METADATA_FILE, "w", newline="") as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow(["filename", "category"])
+        writer.writerow(["filename", "canonical_label", "file_path"])
         writer.writerows(metadata)
     
     print(f"✅ Dataset preparation complete. {image_count} images ready for training.")

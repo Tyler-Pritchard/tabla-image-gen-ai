@@ -5,8 +5,8 @@ import matplotlib.image as mpimg
 from random import sample
 
 # CONFIG
-METADATA_PATH = "data_processing/metadata_refined.csv"
-IMAGES_BASE_PATH = "data_processing/processed_images_canonical"
+METADATA_PATH = "data_training/metadata.csv"
+IMAGES_BASE_PATH = "data_processing/processed_images"
 SAMPLES_PER_LABEL = 16  # 4x4 grid
 
 def display_grid(label, image_paths):
