@@ -6,7 +6,7 @@ from random import sample
 
 # CONFIG
 METADATA_PATH = "data_training/metadata.csv"
-IMAGES_BASE_PATH = "data_processing/processed_images"
+IMAGES_BASE_PATH = "data_training/images"
 SAMPLES_PER_LABEL = 16  # 4x4 grid
 
 def display_grid(label, image_paths):

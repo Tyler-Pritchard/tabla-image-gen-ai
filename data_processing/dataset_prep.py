@@ -35,7 +35,9 @@ def prepare_dataset():
                     img = resize_image(file_path)
                     if img is not None:
                         new_filename = f"tabla_{image_count:04d}.jpg"
-                        new_path = os.path.join(TRAINING_IMAGES_DIR, new_filename)
+                        label_dir = os.path.join(TRAINING_IMAGES_DIR, folder)
+                        os.makedirs(label_dir, exist_ok=True)
+                        new_path = os.path.join(label_dir, new_filename)
                         cv2.imwrite(new_path, img)
                         metadata.append([new_filename, folder, os.path.abspath(new_path)])
                         image_count += 1
